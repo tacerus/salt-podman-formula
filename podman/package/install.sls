@@ -83,6 +83,7 @@ Podman is installed:
     - name: {{ podman.lookup.pkg.name }}
 {%-   endif %}
 
+{#
 # this installs pip and git, which are required for this formula
 Podman required packages are installed:
   pkg.installed:
@@ -151,6 +152,7 @@ podman-compose is installed:
 {%-   endif %}
 {%- endif %}
 
+#}
 {%- if podman.compose.install_modules %}
 
 Custom compose Salt modules are installed:

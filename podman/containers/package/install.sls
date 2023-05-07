@@ -15,41 +15,40 @@ include:
   - {{ sls_service_running }}
 {%- endif %}
 
-{%- for cnt_name, cnt in podman.containers.items() %}
-{%-   set rootless = cnt.get("rootless", True) %}
-{%-   if rootless %}
 
-User account for container {{ cnt_name }} is present:
+User account autopod is present:
   user.present:
-    - name: {{ cnt_name }}
+    - name: autopod
+{#-
     - home: {{ podman.lookup.containers.base | path_join(cnt_name) }}
     - createhome: true
     - usergroup: true
     # (on Debian 11) subuid/subgid are only added automatically for non-system users
     - system: false
-
-User session for container {{ cnt_name }} is initialized at boot:
+#}
+User session for autopod is initialized at boot:
   compose.lingering_managed:
-    - name: {{ cnt_name }}
+    - name: autopod
     - enable: true
     - require:
-      - user: {{ cnt_name }}
+      - user: autopod
 
-Podman API for container {{ cnt_name }} is enabled:
+Podman API for autopod is enabled:
   compose.systemd_service_enabled:
     - name: podman.socket
-    - user: {{ cnt_name }}
+    - user: autopod
     - require:
-      - User session for container {{ cnt_name }} is initialized at boot
+      - User session for autopod is initialized at boot
 
-Podman API for container {{ cnt_name }} is available:
+Podman API for autopod is available:
   compose.systemd_service_running:
     - name: podman.socket
-    - user: {{ cnt_name }}
+    - user: autopod
     - require:
-      - Podman API for container {{ cnt_name }} is enabled
-{%-   endif %}
+      - Podman API for autopod is enabled
 
+{%- for cnt_name, cnt in podman.containers.items() %}
+{%-   set rootless = cnt.get("rootless", True) %}
 {%-   if cnt.get("env_secrets") %}
 
 Container {{ cnt_name }} secrets are present:
@@ -70,7 +69,7 @@ Container {{ cnt_name }} secrets are present:
 {%-     endif %}
     - require:
 {%-     if rootless %}
-      - Podman API for container {{ cnt_name }} is available
+      - Podman API for autopod is available
 {%-     else %}
       - sls: {{ sls_service_running }}
 {%-     endif %}
@@ -107,26 +106,28 @@ Container {{ cnt_name }} is present:
     - {{ cparam }}: {{ cval | json }}
 {%-   endfor %}
 {%-   if rootless %}
-    - user: {{ cnt_name }}
+    - user: autopod
+{#
     - require:
 {%-     if rootless %}
-      - Podman API for container {{ cnt_name }} is available
+      - Podman API for autopod is available
 {%-     else %}
       - sls: {{ sls_service_running }}
 {%-     endif %}
+#}
 {%-   endif %}
 
 Container {{ cnt_name }} systemd unit is installed:
   file.managed:
-    - name: {{ ((podman.lookup.containers.base | path_join(cnt_name, ".config", "systemd", "user")) if rootless else "/etc/systemd/system")
+    - name: {{ ((podman.lookup.containers.base | path_join(".config", "systemd", "user")) if rootless else "/etc/systemd/system")
                  | path_join(cnt_name ~ ".service") }}
     - source: {{ files_switch(["container.service.j2"],
                               lookup="Container {{ cnt_name }} systemd unit is installed"
                  )
               }}
     - mode: '0644'
-    - user: {{ cnt_name if rootless else "root" }}
-    - group: {{ cnt_name if rootless else mariadb.lookup.rootgroup }}
+    - user: autopod
+    - group: autopod
     - makedirs: True
     - template: jinja
     - require:
@@ -134,13 +135,13 @@ Container {{ cnt_name }} systemd unit is installed:
     - context:
         name: {{ cnt_name }}
         generate_params: {{ cnt.get("generate_params", {}) | json }}
-        user: {{ cnt_name if rootless else "root" }}
+        user: autopod
 
 {%-   if rootless %}
 
 Podman autoupdate service is managed for {{ cnt_name }}:
   compose.systemd_service_{{ "enabled" if cnt.get("autoupdate") else "disabled" }}:
-    - user: {{ cnt_name }}
+    - user: autopod
     - name: podman-auto-update.timer
     - require:
       - Container {{ cnt_name }} is present
