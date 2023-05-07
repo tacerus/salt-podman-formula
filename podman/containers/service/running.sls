@@ -14,7 +14,7 @@ Container {{ cnt_name }} is running:
     - name: {{ cnt_name }}
     - enable: true
 {%-   if cnt.get("rootless", True) %}
-    - user: {{ cnt_name }}
+    - user: autopod
 {%-   endif %}
     - watch:
       - sls: {{ sls_package_install }}
