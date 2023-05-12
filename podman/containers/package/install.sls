@@ -16,10 +16,10 @@ include:
 {%- endif %}
 
 
+{#-
 User account autopod is present:
   user.present:
     - name: autopod
-{#-
     - home: {{ podman.lookup.containers.base | path_join(cnt_name) }}
     - createhome: true
     - usergroup: true
