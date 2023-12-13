@@ -2,7 +2,7 @@
 
 {%- set tplroot = tpldir.split("/")[0] %}
 {%- from tplroot ~ "/map.jinja" import mapdata as podman with context %}
-{%- from tplroot ~ "/libtofs.jinja" import files_switch with context %}
+{%- from tplroot ~ "/libtofsstack.jinja" import files_switch with context %}
 
 {%- if podman.install_method == "repo" or podman.salt_compat %}
 include:
@@ -89,34 +89,40 @@ Podman required packages are installed:
   pkg.installed:
     - pkgs: {{ podman.lookup.required_pkgs }}
 
-Toml python library is installed:
+Toml and Podman python libraries are installed:
   pip.installed:
-    - name: toml
+    - pkgs:
+      - toml
+      - podman
     - reload_modules: true
     - require:
       - Podman required packages are installed
 
 Restart salt minion on installation of toml:
   cmd.run:
-    - name: salt-call service.restart salt-minion
+    - name: sleep 60; salt-call service.restart salt-minion
     - bg: true
     - onchanges:
-      - pip: toml
+      - Toml and Podman python libraries are installed
 
 # those are installed by the Debian package automatically
 Podman unit files are installed:
   file.managed:
     - names:
       - {{ podman.lookup.service.path.format(name=podman.lookup.service.name) }}:
-        - source: {{ files_switch(["podman.service"],
-                                  lookup="Podman service unit file is installed",
-                                  indent_width=10
+        - source: {{ files_switch(
+                        ["podman.service", "podman.service.j2"],
+                        config=podman,
+                        lookup="Podman service unit file is installed",
+                        indent_width=10
                      )
                   }}
       - {{ podman.lookup.service.socket_path.format(name=podman.lookup.service.name) }}:
-        - source: {{ files_switch(["podman.socket"],
-                                  lookup="Podman socket unit file is installed",
-                                  indent_width=10
+        - source: {{ files_switch(
+                        ["podman.socket", "podman.socket.j2"],
+                        config=podman,
+                        lookup="Podman socket unit file is installed",
+                        indent_width=10
                      )
                   }}
     - template: jinja
@@ -141,11 +147,17 @@ docker-compose is installed:
     - group: {{ podman.lookup.rootgroup }}
     - require:
       - Podman is installed
+
 {%-   elif podman.compose.install == "podman" %}
+{%-     set pip =
+          salt["cmd.which_bin"](["/bin/pip3", "/usr/bin/pip3", "/bin/pip", "/usr/bin/pip"]) or
+          '__slot__:salt:cmd.which_bin(["/bin/pip3", "/usr/bin/pip3", "/bin/pip", "/usr/bin/pip"])'
+%}
 
 podman-compose is installed:
   pip.installed:
     - name: {{ podman._compose }}
+    - bin_env: {{ pip }}
     - require:
       - Podman is installed
       - Podman required packages are installed
@@ -159,5 +171,5 @@ Custom compose Salt modules are installed:
   saltutil.sync_all:
     - refresh: true
     - unless:
-      - '{{ "compose" in salt["saltutil.list_extmods"]().get("states", []) | lower }}'
+      - '{{ ("compose" in salt["saltutil.list_extmods"]().get("states", [])) | lower }}'
 {%- endif %}

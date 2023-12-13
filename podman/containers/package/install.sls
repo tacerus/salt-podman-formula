@@ -1,7 +1,7 @@
 # vim: ft=sls
 
 {%- set tplroot = tpldir.split("/")[0] %}
-{%- from tplroot ~ "/libtofs.jinja" import files_switch with context %}
+{%- from tplroot ~ "/libtofsstack.jinja" import files_switch with context %}
 {%- from tplroot ~ "/map.jinja" import mapdata as podman with context %}
 {%- set sls_config_file = tplroot ~ ".package.install" %}
 {%- set sls_service_running = "" %}
@@ -107,28 +107,24 @@ Container {{ cnt_name }} is present:
 {%-   endfor %}
 {%-   if rootless %}
     - user: autopod
-{#
     - require:
-{%-     if rootless %}
       - Podman API for autopod is available
-{%-     else %}
-      - sls: {{ sls_service_running }}
-{%-     endif %}
-#}
 {%-   endif %}
 
 Container {{ cnt_name }} systemd unit is installed:
   file.managed:
     - name: {{ ((podman.lookup.containers.base | path_join(".config", "systemd", "user")) if rootless else "/etc/systemd/system")
                  | path_join(cnt_name ~ ".service") }}
-    - source: {{ files_switch(["container.service.j2"],
-                              lookup="Container {{ cnt_name }} systemd unit is installed"
+    - source: {{ files_switch(
+                    [cnt_name ~ ".service.j2", "container.service.j2"],
+                    config=podman,
+                    lookup="Container {{ cnt_name }} systemd unit is installed",
                  )
               }}
     - mode: '0644'
     - user: autopod
     - group: autopod
-    - makedirs: True
+    - makedirs: true
     - template: jinja
     - require:
       - Container {{ cnt_name }} is present
